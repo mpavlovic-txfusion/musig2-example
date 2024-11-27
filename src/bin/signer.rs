@@ -1,5 +1,7 @@
 use clap::Parser;
 use futures::{SinkExt, StreamExt};
+use musig2::secp::Point;
+use musig2::KeyAggContext;
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use std::error::Error;
 use std::{collections::HashMap, sync::Arc};
@@ -28,10 +30,11 @@ enum PeerConnection {
 
 struct SignerNode {
     port: u16,
-    secret_key: SecretKey,
+    _secret_key: SecretKey,
     public_key: PublicKey,
     peers: Arc<Mutex<HashMap<PublicKey, PeerConnection>>>,
     discovery_ports: Vec<u16>,
+    signing_session: Arc<Mutex<Option<KeyAggContext>>>,
 }
 
 impl SignerNode {
@@ -42,14 +45,54 @@ impl SignerNode {
 
         Self {
             port,
-            secret_key,
+            _secret_key: secret_key,
             public_key,
             peers: Arc::new(Mutex::new(HashMap::new())),
             discovery_ports,
+            signing_session: Arc::new(Mutex::new(None)),
         }
     }
 
-    pub async fn start(&self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn initialize_signing_session(
+        peers: &HashMap<PublicKey, PeerConnection>,
+        our_public_key: PublicKey,
+        our_signing_session: &Mutex<Option<KeyAggContext>>,
+    ) {
+        // Add debug print to track who's calling this
+        println!("🔄 Initializing signing session...");
+        println!("📊 Current peers: {:?}", peers.keys().collect::<Vec<_>>());
+
+        // Collect all public keys (including our own)
+        let mut pubkeys: Vec<PublicKey> = peers.keys().cloned().collect();
+        pubkeys.push(our_public_key);
+        pubkeys.sort_by_key(|k| k.serialize());
+
+        println!("🔐 Initializing signing session with {} participants: {:?}", pubkeys.len(), pubkeys);
+
+        // Check if we already have a session
+        let existing_session = our_signing_session.lock().await.is_some();
+        if existing_session {
+            println!("⚠️  Signing session already initialized, skipping...");
+            return;
+        }
+
+        match KeyAggContext::new(pubkeys) {
+            Ok(ctx) => {
+                let mut session = our_signing_session.lock().await;
+                *session = Some(ctx);
+                println!("✅ Signing session initialized successfully");
+                if let Some(ref ctx) = *session {
+                    let agg_pubkey: Point = ctx.aggregated_pubkey();
+                    println!("📢 Aggregated public key: {}", agg_pubkey);
+                }
+            }
+            Err(e) => {
+                println!("❌ Failed to initialize signing session: {:?}", e);
+            }
+        }
+    }
+
+    pub async fn start(&self) -> Result<(), Box<dyn Error>> {
         // Start the WebSocket server
         let server_task = self.run_server();
 
@@ -68,14 +111,17 @@ impl SignerNode {
         println!("🚀 Signer node listening on: {}", addr);
         println!("📢 Public key: {}", self.public_key);
 
+        // let node = Arc::new(SignerNode::new(self.port, self.discovery_ports.clone()));
+
         while let Ok((stream, addr)) = listener.accept().await {
             println!("📥 Incoming connection from: {}", addr);
             let ws_stream = accept_async(stream).await?;
             let peers = Arc::clone(&self.peers);
             let public_key = self.public_key;
+            let signing_session = Arc::clone(&self.signing_session);
 
             tokio::spawn(async move {
-                Self::handle_connection(ws_stream, peers, public_key).await;
+                Self::handle_connection(ws_stream, peers, public_key, signing_session).await;
             });
         }
 
@@ -116,6 +162,10 @@ impl SignerNode {
                                         port, peer_key
                                     );
 
+                                    // Initialize signing session after connection
+                                    println!("🔄 Initializing signing session as client...");
+                                    Self::initialize_signing_session(&peers, self.public_key, &self.signing_session).await;
+
                                     // Spawn message handler
                                     let peers_clone = Arc::clone(&self.peers);
                                     tokio::spawn(async move {
@@ -140,7 +190,8 @@ impl SignerNode {
     async fn handle_connection(
         ws_stream: WsStream<TcpStream>,
         peers: Arc<Mutex<HashMap<PublicKey, PeerConnection>>>,
-        public_key: PublicKey,
+        our_public_key: PublicKey,
+        our_signing_session: Arc<Mutex<Option<KeyAggContext>>>,
     ) {
         let mut ws_stream = ws_stream;
         let peers_clone = Arc::clone(&peers);
@@ -155,7 +206,7 @@ impl SignerNode {
                         println!("✨ Successfully parsed peer key: {}", peer_key);
 
                         // Send our public key in response
-                        let key_msg = format!("KEY:{}", public_key);
+                        let key_msg = format!("KEY:{}", our_public_key);
                         println!("📤 Sending our key: {}", key_msg);
 
                         if ws_stream.send(Message::Text(key_msg)).await.is_ok() {
@@ -164,6 +215,10 @@ impl SignerNode {
                             let mut peers = peers.lock().await;
                             peers.insert(peer_key, PeerConnection::Server(ws_stream));
                             println!("🤝 New peer connected with key: {}", peer_key);
+
+                            // Initialize signing session
+                            println!("🔄 Initializing signing session as server...");
+                            Self::initialize_signing_session(&peers, our_public_key, &our_signing_session).await;
 
                             // Spawn message handler
                             tokio::spawn(async move {
