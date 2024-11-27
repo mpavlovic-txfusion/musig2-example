@@ -1,1 +1,12 @@
 /target
+
+# Ignore editor directories and files
+.vscode/
+.idea/
+*.sublime-workspace
+.project
+.settings/
+nbproject/
+*.swp
+.DS_Store
+Thumbs.db
