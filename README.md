@@ -2,6 +2,9 @@
 
 A simple demonstration of MuSig2 signing functionality.
 
+For technical details about the MuSig2 protocol, see the [original paper](https://eprint.iacr.org/2020/1261).
+
+
 ## 🛠️ Prerequisites
 
 - Rust toolchain
