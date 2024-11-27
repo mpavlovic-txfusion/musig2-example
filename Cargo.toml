@@ -1,8 +1,12 @@
 [package]
-name = "musig2-example"
+name = "musig2_example"
 version = "0.1.0"
 edition = "2021"
 description = "Example implementation of MuSig2 multi-signature scheme"
+
+[[bin]]
+name = "signer"
+path = "src/bin/signer.rs"
 
 [dependencies]
 musig2 = "0.2.0"
@@ -14,6 +18,7 @@ tokio-tungstenite = "0.20"
 tungstenite = "0.20"
 futures = "0.3"
 clap = { version = "4.4", features = ["derive"] }
+
 
 [[example]]
 name = "basic_musig2"
