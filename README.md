@@ -20,16 +20,16 @@ cargo run --example basic_musig2
 
 ### 🌐 Distributed system with multiple signers running on different ports
 
-Run two signers that communicate via WebSocket connection:
+Run two signers that communicate over TCP connection:
 
 #### Terminal 1
 ```shell
-cargo run --bin signer -- --port 8000 --peers 8001
+cargo run --bin signer -- --port 8080 --peers 8081 --num-of-signers 2
 ```
 
 #### Terminal 2
 ```shell
-cargo run --bin signer -- --port 8001 --peers 8000
+cargo run --bin signer -- --port 8081 --peers 8080 --num-of-signers 2
 ```
 
 ## 🔍 What Happens?
@@ -38,6 +38,6 @@ The demo showcases MuSig2 multi-signature protocol in action:
 
 1. ✨ Signers establish WebSocket connections
 2. 🔑 Exchange public keys
-3. 📝 Initialize signing session
+3. 📝 Initialize first and second round of MuSig2 (generating nonces and partial signatures)
 4. 🤝 Collaborate to create an aggregated signature
 5. ✅ Verify the resulting signature with the aggregated public key

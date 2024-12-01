@@ -1,6 +1,3 @@
-mod connection;
-mod node;
-mod session;
-
-pub use node::PeerConnection;
-pub use node::SignerNode;
+pub mod message;
+pub mod network;
+pub mod utils;
