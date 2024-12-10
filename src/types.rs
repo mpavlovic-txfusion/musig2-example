@@ -20,7 +20,7 @@ pub struct NodeRegistration {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SigningInitiateRequest {
+pub struct SigningRequest {
     pub message: String,
 }
 

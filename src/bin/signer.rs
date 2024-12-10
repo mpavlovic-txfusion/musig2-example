@@ -1,8 +1,8 @@
 use clap::Parser;
 use musig2::{FirstRound, PartialSignature, PubNonce, SecNonceSpices, SecondRound};
-use musig2_example::types::NodeRegistration;
+use musig2_example::error::handle_rejection;
 use musig2_example::types::{
-    GenerateNonceRequest, ReceiveNoncesRequest, ReceiveNoncesResponse,
+    GenerateNonceRequest, NodeRegistration, ReceiveNoncesRequest, ReceiveNoncesResponse,
     ReceivePartialSignaturesRequest, ReceivePartialSignaturesResponse, SigningSession,
 };
 use reqwest::Client;
@@ -13,8 +13,6 @@ use rand::Rng;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
-
-use serde::Serialize;
 
 /// Signer node for responding to signing requests.
 #[derive(Parser, Debug)]
@@ -42,11 +40,6 @@ struct SignerState {
 struct SignerError(String);
 
 impl warp::reject::Reject for SignerError {}
-
-#[derive(Debug, Serialize)]
-struct ErrorResponse {
-    error: String,
-}
 
 #[tokio::main]
 async fn main() {
@@ -219,15 +212,15 @@ async fn handle_receive_partial_signatures(
 
     // Receive partial signatures from other signers
     for (index, sig) in request.partial_signatures {
-        println!(
-            "Processing partial signature for signer index {}: {:?}",
-            index, sig
-        );
-        let our_partial_signature: PartialSignature = second_round.our_signature();
-        println!(
-            "Our signer's partial signature: {:?}",
-            our_partial_signature
-        );
+        // println!(
+        //     "Processing partial signature for signer index {}: {:?}",
+        //     index, sig
+        // );
+        // let our_partial_signature: PartialSignature = second_round.our_signature();
+        // println!(
+        //     "Our signer's partial signature: {:?}",
+        //     our_partial_signature
+        // );
         if let Err(e) = second_round.receive_signature(index, sig) {
             eprintln!("Failed to receive signature from index {}: {:?}", index, e);
             return Err(warp::reject::custom(SignerError(format!(
@@ -246,31 +239,4 @@ async fn handle_receive_partial_signatures(
     Ok(warp::reply::json(&ReceivePartialSignaturesResponse {
         final_signature,
     }))
-}
-
-// Add this to handle rejections
-async fn handle_rejection(
-    err: warp::Rejection,
-) -> Result<impl warp::Reply, std::convert::Infallible> {
-    let code;
-    let message;
-
-    if err.is_not_found() {
-        code = warp::http::StatusCode::NOT_FOUND;
-        message = "Not Found";
-    } else if let Some(e) = err.find::<SignerError>() {
-        code = warp::http::StatusCode::BAD_REQUEST;
-        message = e.0.as_str();
-    } else {
-        eprintln!("unhandled error: {:?}", err);
-        code = warp::http::StatusCode::INTERNAL_SERVER_ERROR;
-        message = "Internal Server Error";
-    }
-
-    Ok(warp::reply::with_status(
-        warp::reply::json(&ErrorResponse {
-            error: message.to_string(),
-        }),
-        code,
-    ))
 }

@@ -1,9 +1,10 @@
 use clap::Parser;
 use musig2::KeyAggContext;
+use musig2_example::error::handle_rejection;
 use musig2_example::types::{
     GenerateNonceRequest, NodeRegistration, ReceiveNoncesRequest, ReceiveNoncesResponse,
-    ReceivePartialSignaturesRequest, ReceivePartialSignaturesResponse, SigningInitiateRequest,
-    SigningInitiateResponse, SigningSession,
+    ReceivePartialSignaturesRequest, ReceivePartialSignaturesResponse, SigningInitiateResponse,
+    SigningRequest, SigningSession,
 };
 use reqwest::Client;
 use secp256k1::PublicKey;
@@ -52,14 +53,14 @@ async fn main() {
         .and(state_filter.clone())
         .and_then(register_signer);
 
-    // Initiate signing endpoint
-    let initiate_signing = warp::post()
+    // Signing endpoint
+    let sign = warp::post()
         .and(warp::path("sign"))
         .and(warp::body::json())
         .and(state_filter.clone())
-        .and_then(initiate_signing);
+        .and_then(sign_message);
 
-    let routes = register.or(initiate_signing);
+    let routes = register.or(sign).recover(handle_rejection);
 
     println!("Operator running on port {}...", args.port);
     warp::serve(routes).run(([127, 0, 0, 1], args.port)).await;
@@ -81,8 +82,8 @@ async fn register_signer(
     ))
 }
 
-async fn initiate_signing(
-    request: SigningInitiateRequest,
+async fn sign_message(
+    request: SigningRequest,
     state: OperatorState,
 ) -> Result<impl warp::Reply, warp::Rejection> {
     println!("Initiating signing of the message: {:?}", request.message);
@@ -177,20 +178,20 @@ async fn initiate_signing(
     let client = Client::new();
     let mut final_signatures = Vec::new();
 
-    for ((i, pubkey), address) in signers.iter() {
+    for ((i, _), address) in signers.iter() {
         let mut other_sigs = indexed_partial_sigs.clone();
         // Remove this signer's own partial signature
         other_sigs.remove(&i);
 
-        println!(
-            "Sending partial signatures to signer {} at {}",
-            pubkey, address
-        );
-        println!(
-            "Sending {} partial signatures: {:?}",
-            other_sigs.len(),
-            other_sigs
-        );
+        // println!(
+        //     "Sending partial signatures to signer {} at {}",
+        //     pubkey, address
+        // );
+        // println!(
+        //     "Sending {} partial signatures: {:?}",
+        //     other_sigs.len(),
+        //     other_sigs
+        // );
 
         let partial_sigs_request = ReceivePartialSignaturesRequest {
             session_id: session_id.clone(),
