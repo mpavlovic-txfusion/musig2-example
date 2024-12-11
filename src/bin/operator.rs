@@ -153,14 +153,14 @@ impl Operator {
             // Remove this signer's own nonce
             other_nonces.remove(&i);
 
-            let receive_request = ReceiveNoncesRequest {
+            let receive_nonces_request = ReceiveNoncesRequest {
                 session_id: session_id.clone(),
                 nonces: other_nonces,
             };
 
             let response: ReceiveNoncesResponse = client
-                .post(format!("{}/receive_nonces", address))
-                .json(&receive_request)
+                .put(format!("{}/nonces", address))
+                .json(&receive_nonces_request)
                 .send()
                 .await
                 .map_err(|_| {
@@ -170,7 +170,7 @@ impl Operator {
                 .await
                 .map_err(|_| {
                     warp::reject::custom(OperatorError(
-                        "Failed to parse response from /receive_nonces".to_string(),
+                        "Failed to parse response from /nonces".to_string(),
                     ))
                 })?;
 
@@ -202,7 +202,7 @@ impl Operator {
             };
 
             let response = client
-                .post(format!("{}/receive_partial_signatures", address))
+                .put(format!("{}/partial-signatures", address))
                 .json(&partial_sigs_request)
                 .send()
                 .await

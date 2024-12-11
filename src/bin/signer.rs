@@ -104,15 +104,15 @@ impl Signer {
             .and_then(|req, state: Signer| async move { state.handle_generate_nonce(req).await });
 
         // Receive nonces endpoint
-        let receive_nonces = warp::post()
-            .and(warp::path("receive_nonces"))
+        let receive_nonces = warp::put()
+            .and(warp::path("nonces"))
             .and(warp::body::json())
             .and(state_filter.clone())
             .and_then(|req, state: Signer| async move { state.handle_receive_nonces(req).await });
 
         // Receive partial signatures endpoint
-        let receive_partial_signatures = warp::post()
-            .and(warp::path("receive_partial_signatures"))
+        let receive_partial_signatures = warp::put()
+            .and(warp::path("partial-signatures"))
             .and(warp::body::json())
             .and(state_filter.clone())
             .and_then(|req, state: Signer| async move {
