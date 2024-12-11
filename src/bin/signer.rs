@@ -39,7 +39,7 @@ struct Signer {
     url: String,
     secret_key: SecretKey,
     public_key: PublicKey,
-    sessions: Arc<Mutex<HashMap<String, SigningSession>>>,
+    session: Arc<Mutex<Option<SigningSession>>>,
     first_rounds: Arc<Mutex<HashMap<String, FirstRound>>>,
     second_rounds: Arc<Mutex<HashMap<String, SecondRound<Vec<u8>>>>>,
 }
@@ -50,13 +50,14 @@ impl Signer {
         let secp = Secp256k1::new();
         let secret_key = SecretKey::new(&mut rand::thread_rng());
         let public_key = PublicKey::from_secret_key(&secp, &secret_key);
+        println!("Public key: {:?}", public_key);
         Self {
             client,
             operator_url,
             url: address,
             secret_key,
             public_key,
-            sessions: Arc::new(Mutex::new(HashMap::new())),
+            session: Arc::new(Mutex::new(None)),
             first_rounds: Arc::new(Mutex::new(HashMap::new())),
             second_rounds: Arc::new(Mutex::new(HashMap::new())),
         }
@@ -151,18 +152,15 @@ impl Signer {
         let public_nonce = first_round.our_public_nonce();
 
         // Store session data and FirstRound separately
-        let mut sessions = self.sessions.lock().await;
+        let mut session_guard = self.session.lock().await;
         let mut first_rounds = self.first_rounds.lock().await;
 
-        sessions.insert(
-            request.session_id.clone(),
-            SigningSession {
-                session_id: request.session_id.clone(),
-                message: request.message.clone(),
-                key_agg_ctx: request.key_agg_ctx,
-                public_nonces: HashMap::new(),
-            },
-        );
+        let session = SigningSession {
+            session_id: request.session_id.clone(),
+            message: request.message.clone(),
+            key_agg_ctx: request.key_agg_ctx,
+        };
+        *session_guard = Some(session);
 
         first_rounds.insert(request.session_id, first_round);
 
@@ -173,13 +171,13 @@ impl Signer {
         self,
         request: ReceiveNoncesRequest,
     ) -> Result<impl warp::Reply, warp::Rejection> {
-        let sessions = self.sessions.lock().await;
+        let session_guard = self.session.lock().await;
+        let session = session_guard.as_ref().ok_or_else(|| {
+            warp::reject::custom(SignerError("No active session found".to_string()))
+        })?;
+
         let mut first_rounds = self.first_rounds.lock().await;
         let mut second_rounds = self.second_rounds.lock().await;
-
-        let session = sessions
-            .get(&request.session_id)
-            .ok_or_else(|| warp::reject::custom(SignerError("Session not found".to_string())))?;
 
         let mut first_round = first_rounds.remove(&request.session_id).ok_or_else(|| {
             warp::reject::custom(SignerError("First round not found".to_string()))

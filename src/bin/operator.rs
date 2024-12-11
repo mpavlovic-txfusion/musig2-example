@@ -14,7 +14,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 use warp::Filter;
 
-/// Operator node for managing signer nodes and signing sessions.
+/// Operator node for managing communication between signers.
 #[derive(Parser, Debug)]
 struct Cli {
     /// Port to run the operator node
@@ -33,7 +33,7 @@ struct Operator {
     client: HttpClient,
     port: u16,
     signers: Arc<Mutex<HashMap<(usize, PublicKey), String>>>,
-    sessions: Arc<Mutex<HashMap<String, SigningSession>>>,
+    session: Arc<Mutex<Option<SigningSession>>>,
 }
 
 impl Operator {
@@ -42,7 +42,7 @@ impl Operator {
             client,
             port,
             signers: Arc::new(Mutex::new(HashMap::new())),
-            sessions: Arc::new(Mutex::new(HashMap::new())),
+            session: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -110,12 +110,11 @@ impl Operator {
             session_id: session_id.clone(),
             message: request.message.clone(),
             key_agg_ctx: key_agg_ctx.clone(),
-            public_nonces: HashMap::new(),
         };
 
         // Store session
-        let mut sessions = self.sessions.lock().await;
-        sessions.insert(session_id.clone(), session);
+        let mut session_guard = self.session.lock().await;
+        *session_guard = Some(session);
 
         // Request nonces from all signers
         let client = self.client.inner();

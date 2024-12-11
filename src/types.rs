@@ -1,8 +1,8 @@
 use crate::serde_utils::{
     deserialize_compact_signature, deserialize_key_agg_ctx, deserialize_partial_sig_map,
-    deserialize_partial_signature, deserialize_pubkey_map, deserialize_public_key,
-    serialize_compact_signature, serialize_key_agg_ctx, serialize_partial_sig_map,
-    serialize_partial_signature, serialize_pubkey_map, serialize_public_key,
+    deserialize_partial_signature, deserialize_public_key, serialize_compact_signature,
+    serialize_key_agg_ctx, serialize_partial_sig_map, serialize_partial_signature,
+    serialize_public_key,
 };
 use musig2::{CompactSignature, KeyAggContext, PartialSignature};
 use secp256k1::PublicKey;
@@ -33,11 +33,6 @@ pub struct SigningSession {
         deserialize_with = "deserialize_key_agg_ctx"
     )]
     pub key_agg_ctx: KeyAggContext,
-    #[serde(
-        serialize_with = "serialize_pubkey_map",
-        deserialize_with = "deserialize_pubkey_map"
-    )]
-    pub public_nonces: HashMap<PublicKey, Vec<u8>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
