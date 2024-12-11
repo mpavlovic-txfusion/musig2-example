@@ -3,8 +3,9 @@ use musig2::{FirstRound, PartialSignature, PubNonce, SecNonceSpices, SecondRound
 use musig2_example::client::HttpClient;
 use musig2_example::error::handle_rejection;
 use musig2_example::types::{
-    GenerateNonceRequest, NodeRegistration, ReceiveNoncesRequest, ReceiveNoncesResponse,
-    ReceivePartialSignaturesRequest, ReceivePartialSignaturesResponse, SigningSession,
+    GenerateNonceRequest, ReceiveNoncesRequest, ReceiveNoncesResponse,
+    ReceivePartialSignaturesRequest, ReceivePartialSignaturesResponse, SignerRegistrationRequest,
+    SigningSession,
 };
 use secp256k1::{PublicKey, Secp256k1, SecretKey};
 use warp::Filter;
@@ -65,7 +66,7 @@ impl Signer {
 
     pub async fn register(&self) -> Result<impl warp::Reply, warp::Rejection> {
         // Submit public key to operator
-        let registration = NodeRegistration {
+        let registration = SignerRegistrationRequest {
             address: self.url.clone(),
             public_key: self.public_key,
         };

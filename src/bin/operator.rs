@@ -3,9 +3,9 @@ use musig2::KeyAggContext;
 use musig2_example::client::HttpClient;
 use musig2_example::error::handle_rejection;
 use musig2_example::types::{
-    GenerateNonceRequest, NodeRegistration, ReceiveNoncesRequest, ReceiveNoncesResponse,
-    ReceivePartialSignaturesRequest, ReceivePartialSignaturesResponse, SigningInitiateResponse,
-    SigningRequest, SigningSession,
+    GenerateNonceRequest, ReceiveNoncesRequest, ReceiveNoncesResponse,
+    ReceivePartialSignaturesRequest, ReceivePartialSignaturesResponse, SignerRegistrationRequest,
+    SigningRequest, SigningResponse, SigningSession,
 };
 use secp256k1::PublicKey;
 use std::collections::HashMap;
@@ -72,7 +72,7 @@ impl Operator {
 
     async fn register_signer(
         self,
-        registration: NodeRegistration,
+        registration: SignerRegistrationRequest,
     ) -> Result<impl warp::Reply, warp::Rejection> {
         let mut signers = self.signers.lock().await;
         let index = signers.len();
@@ -254,7 +254,7 @@ impl Operator {
         )
         .is_ok();
 
-        let response = SigningInitiateResponse {
+        let response = SigningResponse {
             session_id,
             aggregated_pubkey,
             aggregated_signature,

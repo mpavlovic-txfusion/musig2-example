@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize)]
-pub struct NodeRegistration {
+pub struct SignerRegistrationRequest {
     pub address: String,
     #[serde(
         serialize_with = "serialize_public_key",
@@ -48,7 +48,7 @@ pub struct GenerateNonceRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct SigningInitiateResponse {
+pub struct SigningResponse {
     pub session_id: String,
     #[serde(
         serialize_with = "serialize_public_key",
